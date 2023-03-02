@@ -1,0 +1,9 @@
+*.txt
+*.opam
+
+property_test.ml
+
+_build/**
+.idea/**
+# Project exclude paths
+/out/
