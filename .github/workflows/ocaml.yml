@@ -23,9 +23,9 @@ jobs:
       - name: Install
         run: |
           opam install dune
+          eval $(opam config env)
           opam install -t . --deps-only
           opam install ounit2.2.2.6
-          opam install ocamlformat
           opam install qcheck
       - name: Lint
         run: opam exec -- dune fmt --action-stdout-on-success=swallow --action-stderr-on-success=must-be-empty
