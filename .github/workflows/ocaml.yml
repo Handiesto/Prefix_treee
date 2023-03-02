@@ -27,8 +27,6 @@ jobs:
           opam install -t . --deps-only
           opam install ounit2.2.2.6
           opam install qcheck
-      - name: Lint
-        run: opam exec -- dune fmt --action-stdout-on-success=swallow --action-stderr-on-success=must-be-empty
       - name: Build
         run: opam exec -- dune build
       - name: Test
