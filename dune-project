@@ -5,7 +5,7 @@
 (generate_opam_files true)
 
 (source
- (github TimeToStop/binary_tree))
+ (github Handiesto/Prefix_treee))
 
 (authors "Plyasov K. E.")
 
@@ -13,7 +13,7 @@
 
 (license LICENSE)
 
-(documentation https://github.com/TimeToStop/binary_tree)
+(documentation https://github.com/Handiesto/Prefix_treee)
 
 (package
  (name prefix_tree)
