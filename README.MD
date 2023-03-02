@@ -7,140 +7,279 @@
 ### Префиксное дерево на OCaml
 
 ```ocaml
-type 'a tree = Leaf | Node of 'a * 'a tree * 'a tree
+module CharMap = Map.Make(Char)
 
-let empty = Leaf
+type 'a trie = Empty | Node of 'a option * ('a trie) CharMap.t
 
-let rec size = function Leaf -> 0 | Node (_, l, r) -> 1 + size l + size r
+let empty = Empty
 
-let rec insert value = function
-  | Leaf -> Node (value, Leaf, Leaf)
-  | Node (curr, l, r) when value < curr -> Node (curr, insert value l, r)
-  | Node (curr, l, r) when value > curr -> Node (curr, l, insert value r)
-  | Node (curr, l, r) -> Node (curr, l, r)
+let rec add (key : string) (value : 'a) (trie : 'a trie) : 'a trie =
+  match key with
+  | "" -> Node(Some value, CharMap.empty)
+  | _ ->
+    let len = String.length key in
+    if len = 0 then
+      trie
+    else
+      let c = String.get key 0 in
+      let cs = String.sub key 1 (len - 1) in
+      match trie with
+      | Empty -> Node(None, CharMap.singleton c (add cs value Empty))
+      | Node(v, children) ->
+        let subtree = try CharMap.find c children with Not_found -> Empty in
+        let updated_subtree = add cs value subtree in
+        Node(v, CharMap.add c updated_subtree children)
 
-let rec contains value = function
-  | Leaf -> false
-  | Node (curr, l, _) when value < curr -> contains value l
-  | Node (curr, _, r) when value > curr -> contains value r
-  | Node (_, _, _) -> true
 
-let rec min = function
-  | Leaf -> failwith "Called on empty tree"
-  | Node (curr, Leaf, _) -> curr
-  | Node (_, l, _) -> min l
 
-let rec mergeAfterTopErase l r =
-  match (l, r) with
-  | Leaf, Leaf -> Leaf
-  | l, Leaf -> l
-  | Leaf, r -> r
-  | l, r ->
-      let minValue = min r in
-      Node (minValue, l, erase minValue r)
+let rec remove (key : string) (trie : 'a trie) : 'a trie =
+  match key, trie with
+  | "", Node(_, children) -> Node(None, children)
+  | _ ->
+    let len = String.length key in
+    if len = 0 then
+      trie
+    else
+      let c = String.get key 0 in
+      let cs = String.sub key 1 (len - 1) in
+      match trie with
+      | Empty -> Empty
+      | Node(v, children) ->
+        let subtree = try CharMap.find c children with Not_found -> Empty in
+        let updated_subtree = remove cs subtree in
+        match updated_subtree with
+        | Empty -> Node(v, CharMap.remove c children)
+        | _ -> Node(v, CharMap.add c updated_subtree children)
 
-and erase value = function
-  | Leaf -> Leaf
-  | Node (curr, l, _) when value < curr -> erase value l
-  | Node (curr, _, r) when value > curr -> erase value r
-  | Node (_, l, r) -> mergeAfterTopErase l r
 
-let rec filter f = function
-  | Leaf -> Leaf
-  | Node (curr, l, r) when f curr -> Node (curr, filter f l, filter f r)
-  | Node (_, l, r) -> mergeAfterTopErase (filter f l) (filter f r)
+let rec find (key : string) (trie : 'a trie) : 'a option =
+  match key, trie with
+  | "", Node(value, _) -> value
+  | _ ->
+    let len = String.length key in
+    if len = 0 then
+      None
+    else
+      let c = String.get key 0 in
+      let cs = String.sub key 1 (len - 1) in
+      match trie with
+      | Empty -> None
+      | Node(_, children) ->
+        let subtree = try CharMap.find c children with Not_found -> Empty in
+        find cs subtree
 
-let rec foldr f acc = function
-  | Leaf -> acc
-  | Node (curr, l, r) ->
-      let newAcc = foldr f (f acc curr) r in
-      foldl f newAcc l
 
-and foldl f acc = function
-  | Leaf -> acc
-  | Node (curr, l, r) ->
-      let newAcc = foldl f (f acc curr) l in
-      foldr f newAcc r
 
-let map f tree = foldl (fun tree x -> insert (f x) tree) Leaf tree
+let rec filter (predicate : string -> 'a option -> bool) (trie : 'a trie) : 'a trie =
+  match trie with
+  | Empty -> Empty
+  | Node(value, children) ->
+    let filtered_children = CharMap.filter_map
+      (fun _ subtree -> Some (filter predicate subtree))
+      children in
+    let filtered_value = match value with
+      | None -> None
+      | Some v -> if predicate "" (Some v) then Some v else None in
+    if CharMap.is_empty filtered_children && filtered_value = None then
+      Empty
+    else
+      Node(filtered_value, filtered_children)
 
-let fromList list = List.fold_left (fun tree x -> insert x tree) Leaf list
 
-let merge t1 t2 = foldl (fun tree x -> insert x tree) t1 t2
+let rec map (f : 'a -> 'b) (trie : 'a trie) : 'b trie =
+  match trie with
+  | Empty -> Empty
+  | Node(value, children) ->
+    let mapped_value = match value with
+      | None -> None
+      | Some v -> Some (f v) in
+    let mapped_children = CharMap.map (map f) children in
+    Node(mapped_value, mapped_children)
 
-let rec isSame t1 t2 =
-  match (t1, t2) with
-  | Leaf, Leaf -> true
-  | Leaf, _ -> false
-  | _, Leaf -> false
-  | Node (curr1, l1, r1), Node (curr2, l2, r2) ->
-      curr1 == curr2 && isSame l1 l2 && isSame r1 r2
 
-let isEqualsAsSet t1 t2 =
-  size t1 == size t2
-  && foldl (fun result x -> result && contains x t2) true t1
+let merge (t1 : 'a trie) (t2 : 'a trie) : 'a trie =
+  let merge_node v1 v2 =
+    match v1, v2 with
+    | Some _, _ -> v1
+    | _, Some _ -> v2
+    | None, None -> None
+  in
+  let rec merge_helper t1 t2 =
+    match t1, t2 with
+    | Empty, Empty -> Empty
+    | Node(v1, children1), Node(v2, children2) ->
+      let merged_value = merge_node v1 v2 in
+      let merged_children = CharMap.merge
+        (fun _ subtree1 subtree2 ->
+          match subtree1, subtree2 with
+          | Some t1, Some t2 -> Some (merge_helper t1 t2)
+          | Some t1, None -> Some t1
+          | None, Some t2 -> Some t2
+          | None, None -> None)
+        children1 children2
+      in
+      Node(merged_value, merged_children)
+    | _, Empty -> t1
+    | Empty, _ -> t2
+  in
+  merge_helper t1 t2
+
+
+let fold_left f acc t =
+  let rec loop acc = function
+    | Empty -> acc
+    | Node (v, m) ->
+      let acc' = match v with
+        | None -> acc
+        | Some x -> f acc x
+      in
+      CharMap.fold (fun _ t' acc'' -> loop acc'' t') m acc'
+  in
+  loop acc t
+
+
+let fold_right f t acc =
+  let rec loop acc = function
+    | Empty -> acc
+    | Node (v, m) ->
+      let acc' = CharMap.fold (fun _ t' acc'' -> loop acc'' t') m acc in
+      match v with
+      | None -> acc'
+      | Some x -> f x acc'
+  in
+  loop acc t
 
 
 ```
 
 ### Тесты
-Property Based тесты при помощи QCheck
 Unit тесты при помощи OUnit2
 
 ```ocaml
 
-(* association of merge *)
-let association =
-  QCheck.Test.make ~count:1000 ~name:"association of merge "
-    QCheck.(triple (list small_nat) (list small_nat) (list small_nat))
-    (fun (a_list, b_list, c_list) ->
-      let a = Bitree.fromList a_list in
-      let b = Bitree.fromList b_list in
-      let c = Bitree.fromList c_list in
-      Bitree.isEqualsAsSet
-        (Bitree.merge (Bitree.merge a b) c)
-        (Bitree.merge a (Bitree.merge b c)) )
+open OUnit2
+open Prefix_tree
 
-(* insert element retains binary tree*)
-let insertToBitree =
-  QCheck.Test.make ~count:1000 ~name:"insert bitree "
-    QCheck.(pair small_nat (list small_nat))
-    (fun (to_insert, v_list) ->
-      let tree = Bitree.fromList v_list in
-      let tree_insert = Bitree.insert to_insert tree in
-      isBitreeValid tree && isBitreeValid tree_insert )
+let test_add _ =
+  let trie1 = empty in
+  let trie2 = add "hello" 1 trie1 in
+  let trie3 = add "world" 2 trie2 in
+  let trie4 = add "hello" 3 trie3 in
+  assert_equal (find "hello" trie1) None;
+  assert_equal (find "hello" trie2) (Some 1);
+  assert_equal (find "world" trie2) None;
+  assert_equal (find "hello" trie3) (Some 1);
+  assert_equal (find "world" trie3) (Some 2);
+  assert_equal (find "hello" trie4) (Some 3);
+  assert_equal (find "world" trie4) (Some 2)
 
-(* erase element retains binary tree*)
-let eraseToBitree =
-  QCheck.Test.make ~count:1000 ~name:"erase bitree "
-    QCheck.(list small_nat)
-    (fun v_list ->
-      let tree = Bitree.fromList v_list in
-      let tree_erase =
-        match tree with
-        | Leaf -> Leaf
-        | Node (curr, _, _) -> Bitree.erase curr tree
-      in
-      isBitreeValid tree && isBitreeValid tree_erase )
+let test_remove _ =
+  let trie1 = empty in
+  let trie2 = add "hello" 1 trie1 in
+  let trie3 = add "world" 2 trie2 in
+  let trie4 = remove "hello" trie3 in
+  assert_equal (find "hello" trie1) None;
+  assert_equal (find "hello" trie2) (Some 1);
+  assert_equal (find "world" trie2) None;
+  assert_equal (find "hello" trie3) (Some 1);
+  assert_equal (find "world" trie3) (Some 2);
+  assert_equal (find "hello" trie4) None;
+  assert_equal (find "world" trie4) (Some 2)
 
-(* merge with empty retains tree unchanged *)
-let mergeEmpty =
-  QCheck.Test.make ~count:1000 ~name:"merge empty"
-    QCheck.(list small_nat)
-    (fun x_list ->
-      let tree = Bitree.fromList x_list in
-      let left = Bitree.merge tree Bitree.empty in
-      let right = Bitree.merge Bitree.empty tree in
-      Bitree.isSame tree left && Bitree.isSame tree right )
+
+let test_find _ =
+  let trie1 = empty in
+  let trie2 = add "hello" 1 trie1 in
+  let trie3 = add "world" 2 trie2 in
+  let trie4 = add "hello" 3 trie3 in
+  assert_equal (find "hello" trie1) None;
+  assert_equal (find "hello" trie2) (Some 1);
+  assert_equal (find "world" trie2) None;
+  assert_equal (find "hello" trie3) (Some 1);
+  assert_equal (find "world" trie3) (Some 2);
+  assert_equal (find "hello" trie4) (Some 3);
+  assert_equal (find "world" trie4) (Some 2)
+
+
+let test_filter _ =
+  let t1 = empty in
+  let t2 = add "apple" 1 t1 in
+  let t3 = add "banana" 2 t2 in
+  let t4 = add "orange" 3 t3 in
+  let t5 = filter (fun key value -> String.length key > 5 || value = Some 2) t4 in
+  assert_equal None (find "apple" t5);
+  assert_equal (Some 2) (find "banana" t5);
+  assert_equal None (find "orange" t5)
+
+let test_map _ =
+  let t1 = empty |> add "hello" 1 |> add "world" 2 in
+  let t2 = map (fun v -> v * 2) t1 in
+  assert_equal (Some 1) (find "hello" t1);
+  assert_equal (Some 2) (find "world" t1);
+  assert_equal (Some 2) (find "hello" t2);
+  assert_equal (Some 4) (find "world" t2)
+
+let test_merge _ =
+  let t1 = add "abc" 1 (add "ab" 2 (add "a" 3 empty)) in
+  let t2 = add "abc" 4 (add "a" 5 (add "de" 6 empty)) in
+  let t3 = merge t1 t2 in
+  assert_equal (Some 3) (find "a" t3);
+  assert_equal (Some 2) (find "ab" t3);
+  assert_equal (Some 1) (find "abc" t3);
+  assert_equal (Some 6) (find "de" t3);
+  assert_equal None (find "xyz" t3);
+  assert_equal None (find "abcd" t3)
+
+let test_fold_left _ =
+  let t =
+    Node (Some "hello",
+      CharMap.of_seq @@ List.to_seq
+        [ ('w', Node (None, CharMap.of_seq @@ List.to_seq []))
+        ; ('o', Node (Some "world", CharMap.of_seq @@ List.to_seq []))
+        ]
+    )
+  in
+  let expected = "helloworld" in
+  let actual = fold_left (fun acc x -> acc ^ x) "" t in
+  assert (actual = expected)
+
+let test_fold_right _ =
+  let t =
+    Node (Some "hello",
+      CharMap.of_seq @@ List.to_seq
+        [ ('w', Node (None, CharMap.of_seq @@ List.to_seq []))
+        ; ('o', Node (Some "world", CharMap.of_seq @@ List.to_seq []))
+        ]
+    )
+  in
+  let expected = "helloworld" in
+  let actual = fold_right (fun x acc -> x ^ acc) t "" in
+  assert (actual = expected)
+
+
+let suite =
+  "test suite: " >::: [
+    "test_add: " >:: test_add;
+    "test_remove: " >:: test_remove;
+    "test_find: " >:: test_find;
+    "test_filter" >:: test_filter;
+    "test_map"    >:: test_map;
+    "test_merge"  >:: test_merge;
+    "test_fold_left" >:: test_fold_left;
+    "test_fold_right" >:: test_fold_right
+  ]
+
+let () =
+  run_test_tt_main suite;
+
+
+
 
 ```
-........
-Ran: 8 tests in: 0.00 seconds.
+........ 
+Ran: 8 tests in: 0.11 seconds.
 OK
-random seed: 48538408
-....
-Ran: 4 tests in: 0.39 seconds.
-OK
+
 
 
 ### Выводы
