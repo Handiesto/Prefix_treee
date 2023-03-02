@@ -12,7 +12,7 @@ permissions:
 jobs:
 
   run:
-    name: test
+    name: Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -20,14 +20,12 @@ jobs:
       - uses: ocaml/setup-ocaml@v2
         with:
           ocaml-compiler: 4.14.x
-      - name: Install
+      - name: Build
         run: |
           opam install dune
-          eval $(opam config env)          
+          eval $(opam config env)
           opam install -t . --deps-only
           opam install ounit2.2.2.6
-          opam install qcheck
-      - name: Build
-        run: opam exec -- dune build
+          opam exec -- dune build
       - name: Test
         run: opam exec -- dune runtest
