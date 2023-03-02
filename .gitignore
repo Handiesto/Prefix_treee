@@ -3,6 +3,8 @@
 
 property_test.ml
 
+Lab2_22.iml
+
 _build/**
 .idea/**
 # Project exclude paths
