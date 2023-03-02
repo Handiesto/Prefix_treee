@@ -1,5 +1,5 @@
 (test
  (name test_unit)
  (modules test_unit)
- (libraries ounit2 trie prefix_tree))
+ (libraries ounit2 prefix_tree))
 
