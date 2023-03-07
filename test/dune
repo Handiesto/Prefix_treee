@@ -3,3 +3,7 @@
  (modules test_unit)
  (libraries ounit2 prefix_tree))
 
+(test
+ (name property_test)
+ (modules property_test)
+ (libraries base ounit2 qcheck prefix_tree))
