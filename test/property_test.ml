@@ -2,6 +2,7 @@ open! OUnit2
 open! QCheck
 open! Prefix_tree
 
+
 let insertToTrie  =
   QCheck.Test.make ~count:1000 ~name:"insert trie"
     QCheck.(pair string (small_nat))
@@ -38,21 +39,24 @@ let prop_prefix_tree_map  =
 
 let prop_prefix_tree_merge =
   QCheck.Test.make ~count:1000 ~name:"merge trie"
-    QCheck.(pair string (small_nat))
-    (fun (key, value) ->
+    QCheck.(triple (pair string (small_nat))
+                        (pair (small_nat) (small_nat))
+                        (pair (small_nat) (small_nat))
+                        )
+    (fun ((key,value1),(value2,value3),(value4,value5)) ->
       let key_a = key ^ "a" in
       let key_b = key ^ "b" in
       let key_c = key ^ "c" in
       let key_d = key ^ "d" in
-      let expected_a = value in
-      let expected_b = value + 5 in
-      let expected_c = value + 10 in
-      let expected_d = value + 20 in
-      let node1 = Prefix_tree.add key_a value Prefix_tree.empty in
-      let node2 = Prefix_tree.add key_b (value + 5) node1 in
-      let node3 = Prefix_tree.add key_c (value + 10) node2 in
-      let node4 = Prefix_tree.add key_b (value + 15) Prefix_tree.empty in
-      let node5 = Prefix_tree.add key_d (value + 20) node4 in
+      let expected_a = value1 in
+      let expected_b = value2 in
+      let expected_c = value3 in
+      let expected_d = value4 in
+      let node1 = Prefix_tree.add key_a value1 Prefix_tree.empty in
+      let node2 = Prefix_tree.add key_b value2 node1 in
+      let node3 = Prefix_tree.add key_c value3 node2 in
+      let node4 = Prefix_tree.add key_b value5 Prefix_tree.empty in
+      let node5 = Prefix_tree.add key_d value4 node4 in
       let merged = Prefix_tree.merge node3 node5 in
       let equals1 = expected_a = Option.value ~default:(-1) (Prefix_tree.find key_a merged) in
       let equals2 = expected_b = Option.value ~default:(-1) (Prefix_tree.find key_b merged) in
@@ -62,52 +66,50 @@ let prop_prefix_tree_merge =
 
 
 
-
 let associative =
     QCheck.Test.make ~count:1000 ~name:"associative"
-      QCheck.(pair string (small_nat))
-      (fun (key,value) ->
-        let key_a = key ^ "a" in
-        let key_b = key ^ "b" in
-        let key_c = key ^ "c" in
-        let key_d = key ^ "d" in
-        let node1 = Prefix_tree.add key_a value Prefix_tree.empty in
-        let node2 = Prefix_tree.add key_b (value + 5) node1 in
-        let t1 = Prefix_tree.add key_c (value + 10) node2 in
-        let node4 = Prefix_tree.add key_b (value + 15) Prefix_tree.empty in
-        let t2 = Prefix_tree.add key_d (value + 20) node4 in
-        let node6 = Prefix_tree.add key_c (value + 12) Prefix_tree.empty in
-        let t3 = Prefix_tree.add key_d (value + 30) node6 in
+      QCheck.(quad (pair string (small_nat))
+                      (pair string (small_nat))
+                      (pair string (small_nat))
+                      (pair string (small_nat)))
+        (fun ((key1,value1),(key2,value2),(key3,value3),(key4,value4)) ->
+        let node1 = Prefix_tree.add key1 value1 Prefix_tree.empty in
+        let node2 = Prefix_tree.add key2 (value2) node1 in
+        let t1 = Prefix_tree.add key3 (value3) node2 in
+        let node4 = Prefix_tree.add key2 (value2) Prefix_tree.empty in
+        let t2 = Prefix_tree.add key4 (value4) node4 in
+        let node6 = Prefix_tree.add key3 (value3) Prefix_tree.empty in
+        let t3 = Prefix_tree.add key4 (value4) node6 in
         let lhs = Prefix_tree.merge (Prefix_tree.merge t1 t2) t3 in
         let rhs = Prefix_tree.merge t1 (Prefix_tree.merge t2 t3) in
         Prefix_tree.isSame lhs rhs)
 
 let identity =
-  QCheck.Test.make ~count:1000 ~name:"identity"
-    QCheck.(pair string (small_nat))
-    (fun (key,value) ->
-      let key_a = key ^ "a" in
-      let key_b = key ^ "b" in
-      let key_c = key ^ "c" in
-      let node1 = Prefix_tree.add key_a value Prefix_tree.empty in
-      let node2 = Prefix_tree.add key_b (value + 5) node1 in
-      let t = Prefix_tree.add key_c (value + 10) node2 in
+   QCheck.Test.make ~count:1000 ~name:"associative"
+    QCheck.(triple (pair string (small_nat))
+                    (pair string (small_nat))
+                    (pair string (small_nat))
+                    )
+      (fun ((key1,value1),(key2,value2),(key3,value3)) ->
+      let node1 = Prefix_tree.add key1 value1 Prefix_tree.empty in
+      let node2 = Prefix_tree.add key2 (value2) node1 in
+      let t = Prefix_tree.add key3 (value3) node2 in
       let lhs = Prefix_tree.merge t Prefix_tree.empty in
       let rhs = t in
       Prefix_tree.isSame lhs rhs)
+
  let commutative =
     QCheck.Test.make ~count:1000 ~name:"commutative"
-      QCheck.(pair string (small_nat))
-      (fun (key,value) ->
-        let key_a = key ^ "a" in
-        let key_b = key ^ "b" in
-        let key_c = key ^ "c" in
-        let key_d = key ^ "d" in
-        let node1 = Prefix_tree.add key_a value Prefix_tree.empty in
-        let node2 = Prefix_tree.add key_b (value + 5) node1 in
-        let t1 = Prefix_tree.add key_c (value + 10) node2 in
-        let node4 = Prefix_tree.add key_b (value + 15) Prefix_tree.empty in
-        let t2 = Prefix_tree.add key_d (value + 20) node4 in
+      QCheck.(quad (pair string (small_nat))
+                      (pair string (small_nat))
+                      (pair string (small_nat))
+                      (pair string (small_nat)))
+       (fun ((key1,value1),(key2,value2),(key3,value3),(key4,value4)) ->
+        let node1 = Prefix_tree.add key1 value1 Prefix_tree.empty in
+        let node2 = Prefix_tree.add key2 (value2) node1 in
+        let t1 = Prefix_tree.add key3 (value3) node2 in
+        let node4 = Prefix_tree.add key2 (value2) Prefix_tree.empty in
+        let t2 = Prefix_tree.add key4 (value4) node4 in
         let lhs = Prefix_tree.merge t1 t2 in
         let rhs = Prefix_tree.merge t2 t1 in
         Prefix_tree.isSame lhs rhs)
@@ -119,5 +121,5 @@ let _ =
   run_test_tt_main
     ( "tests"
     >::: List.map QCheck_ounit.to_ounit_test
-           [insertToTrie; removeFromTrie; prop_prefix_tree_map; prop_prefix_tree_merge; associative; identity])
+           [insertToTrie; removeFromTrie; prop_prefix_tree_map; associative; identity; prop_prefix_tree_merge])
 

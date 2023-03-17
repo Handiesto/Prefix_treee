@@ -42,22 +42,6 @@ let test_find _ =
   assert_equal (find "world" trie4) (Some 2)
 
 
-(*let test_filter _ =
-  let t1 = empty in
-  let t2 = add "apple" 1 t1 in
-  let t3 = add "banana" 2 t2 in
-  let t4 = add "orange" 3 t3 in
-  let t5 = filter (fun key value -> String.length key > 5 || value = Some 2) t4 in
-  assert_equal None (find "apple" t5);
-  assert_equal (Some 2) (find "banana" t5);
-  assert_equal None (find "orange" t5)*)
-
-(*let test_filter _ =
-  let trie = add "a" 1 (add "ab" 2 (add "abc" 3 empty)) in
-  let filtered_trie = filter (fun v -> v = Some 2) trie in
-  assert_equal None (find "a" filtered_trie);
-  assert_equal (Some 2) (find "ab" filtered_trie);
-  assert_equal None (find "abc" filtered_trie)*)
 
 (* Test for empty trie *)
 let test_filter _ =
