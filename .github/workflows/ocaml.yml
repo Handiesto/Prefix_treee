@@ -28,5 +28,7 @@ jobs:
           opam install ounit2.2.2.6
           opam install qcheck
           opam exec -- dune build
+      - name: Lint
+          run: opam exec -- dune fmt
       - name: Test
         run: opam exec -- dune runtest

@@ -6,4 +6,4 @@
 (test
  (name property_test)
  (modules property_test)
- (libraries  ounit2 qcheck prefix_tree))
+ (libraries ounit2 qcheck prefix_tree))
