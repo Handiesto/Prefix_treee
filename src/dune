@@ -1,6 +1,4 @@
 (library
  (name prefix_tree)
- (wrapped false)
  (public_name prefix_tree)
- (modules prefix_tree)
- (libraries))
+ (modules prefix_tree))
