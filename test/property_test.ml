@@ -39,12 +39,12 @@ let rec trie_gen n =
   if n <= 0 then
     Gen.oneof
       [ Gen.return Empty
-      ; Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen ]
+      ; Gen.map (fun vs -> Node (Some vs, CharMap.empty)) (Gen.list char_gen) ]
   else
     let smaller_gen = trie_gen (n - 1) in
     Gen.frequency
       [ (1, Gen.return Empty)
-      ; (1, Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen)
+      ; (1, Gen.map (fun vs -> Node (Some vs, CharMap.empty)) (Gen.list char_gen))
       ; ( 2
         , Gen.map2
             (fun k t ->
@@ -55,7 +55,7 @@ let rec trie_gen n =
         , Gen.map2
             (fun k t ->
               let children = CharMap.add k t CharMap.empty in
-              Node (Some (Gen.generate1 char_gen), children) )
+              Node (Some (Gen.generate1 (Gen.list char_gen)), children) )
             char_gen smaller_gen ) ]
 
 let trie_arb = make ~print:(fun _ -> "<trie>") (trie_gen 3)
@@ -64,6 +64,8 @@ let trie_arb = make ~print:(fun _ -> "<trie>") (trie_gen 3)
 let prop_merge_idempotent =
   Test.make ~name:"merge_idempotent" ~count:1000 trie_arb (fun t ->
       isSame (merge t t) t )
+
+
 
 (* merge(merge(t1, t2), t3) = merge(t1, merge(t2, t3)) *)
 let prop_merge_associative =
