@@ -58,21 +58,29 @@ let rec find (key : string) (trie : 'a trie) : 'a option =
             in
             find cs subtree )
 
-let rec filter f trie =
+
+let rec filter (pred : 'a -> bool) (trie : 'a trie) : 'a trie =
   match trie with
   | Empty -> Empty
-  | Node (v, children) ->
+  | Node (value, children) ->
+      let filtered_value =
+        match value with None -> None | Some v -> if pred v then Some v else None
+      in
       let filtered_children =
         CharMap.filter_map
-          (fun _ t -> if t = Empty then None else Some (filter f t))
+          (fun _ subtree ->
+            let filtered_subtree = filter pred subtree in
+            if is_empty filtered_subtree then None else Some filtered_subtree )
           children
       in
-      let filtered_node =
-        if f v then Node (v, filtered_children) else Empty
-      in
-      if CharMap.is_empty filtered_children && filtered_node = Empty then
-        Empty
-      else filtered_node
+      if is_empty (Node (filtered_value, filtered_children)) then Empty else Node (filtered_value, filtered_children)
+
+and is_empty = function
+  | Empty -> true
+  | Node (value, children) -> Option.is_none value && CharMap.is_empty children
+
+
+
 
 let rec isSame t1 t2 =
   match (t1, t2) with

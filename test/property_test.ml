@@ -32,89 +32,56 @@ let prop_prefix_tree_map =
       | Some v -> v = value * 2
       | None -> false )
 
-let prop_prefix_tree_merge =
-  QCheck.Test.make ~count:1000 ~name:"merge trie"
-    QCheck.(
-      triple (pair string small_nat)
-        (pair small_nat small_nat)
-        (pair small_nat small_nat) )
-    (fun ((key, value1), (value2, value3), (value4, value5)) ->
-      let key_a = key ^ "a" in
-      let key_b = key ^ "b" in
-      let key_c = key ^ "c" in
-      let key_d = key ^ "d" in
-      let expected_a = value1 in
-      let expected_b = value2 in
-      let expected_c = value3 in
-      let expected_d = value4 in
-      let node1 = Prefix_tree.add key_a value1 Prefix_tree.empty in
-      let node2 = Prefix_tree.add key_b value2 node1 in
-      let node3 = Prefix_tree.add key_c value3 node2 in
-      let node4 = Prefix_tree.add key_b value5 Prefix_tree.empty in
-      let node5 = Prefix_tree.add key_d value4 node4 in
-      let merged = Prefix_tree.merge node3 node5 in
-      let equals1 =
-        expected_a
-        = Option.value ~default:(-1) (Prefix_tree.find key_a merged)
-      in
-      let equals2 =
-        expected_b
-        = Option.value ~default:(-1) (Prefix_tree.find key_b merged)
-      in
-      let equals3 =
-        expected_c
-        = Option.value ~default:(-1) (Prefix_tree.find key_c merged)
-      in
-      let equals4 =
-        expected_d
-        = Option.value ~default:(-1) (Prefix_tree.find key_d merged)
-      in
-      equals1 && equals2 && equals3 && equals4 )
 
-let associative =
-  QCheck.Test.make ~count:1000 ~name:"associative"
-    QCheck.(
-      quad (pair string small_nat) (pair string small_nat)
-        (pair string small_nat) (pair string small_nat) )
-    (fun ((key1, value1), (key2, value2), (key3, value3), (key4, value4)) ->
-      let node1 = Prefix_tree.add key1 value1 Prefix_tree.empty in
-      let node2 = Prefix_tree.add key2 value2 node1 in
-      let t1 = Prefix_tree.add key3 value3 node2 in
-      let node4 = Prefix_tree.add key2 value2 Prefix_tree.empty in
-      let t2 = Prefix_tree.add key4 value4 node4 in
-      let node6 = Prefix_tree.add key3 value3 Prefix_tree.empty in
-      let t3 = Prefix_tree.add key4 value4 node6 in
-      let lhs = Prefix_tree.merge (Prefix_tree.merge t1 t2) t3 in
-      let rhs = Prefix_tree.merge t1 (Prefix_tree.merge t2 t3) in
-      Prefix_tree.isSame lhs rhs )
+let char_gen = Gen.map Char.chr (Gen.int_range (Char.code 'a') (Char.code 'z'))
 
-let identity =
-  QCheck.Test.make ~count:1000 ~name:"associative"
-    QCheck.(
-      triple (pair string small_nat) (pair string small_nat)
-        (pair string small_nat) )
-    (fun ((key1, value1), (key2, value2), (key3, value3)) ->
-      let node1 = Prefix_tree.add key1 value1 Prefix_tree.empty in
-      let node2 = Prefix_tree.add key2 value2 node1 in
-      let t = Prefix_tree.add key3 value3 node2 in
-      let lhs = Prefix_tree.merge t Prefix_tree.empty in
-      let rhs = t in
-      Prefix_tree.isSame lhs rhs )
 
-let commutative =
-  QCheck.Test.make ~count:1000 ~name:"commutative"
-    QCheck.(
-      quad (pair string small_nat) (pair string small_nat)
-        (pair string small_nat) (pair string small_nat) )
-    (fun ((key1, value1), (key2, value2), (key3, value3), (key4, value4)) ->
-      let node1 = Prefix_tree.add key1 value1 Prefix_tree.empty in
-      let node2 = Prefix_tree.add key2 value2 node1 in
-      let t1 = Prefix_tree.add key3 value3 node2 in
-      let node4 = Prefix_tree.add key2 value2 Prefix_tree.empty in
-      let t2 = Prefix_tree.add key4 value4 node4 in
-      let lhs = Prefix_tree.merge t1 t2 in
-      let rhs = Prefix_tree.merge t2 t1 in
-      Prefix_tree.isSame lhs rhs )
+let rec trie_gen n =
+  if n <= 0 then
+    Gen.oneof [Gen.return Empty; Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen]
+  else
+    let smaller_gen = trie_gen (n - 1) in
+    Gen.frequency
+      [
+        (1, Gen.return Empty);
+        (1, Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen);
+        ( 2,
+          Gen.map2
+            (fun k t ->
+              let children = CharMap.add k t CharMap.empty in
+              Node (None, children))
+            char_gen smaller_gen );
+        ( 4,
+          Gen.map2
+            (fun k t ->
+              let children = CharMap.add k t CharMap.empty in
+              Node (Some (Gen.generate1 char_gen), children))
+            char_gen smaller_gen );
+      ]
+
+
+let trie_arb = make ~print:(fun _ -> "<trie>") (trie_gen 3)
+
+
+(* merge(t, t) = t *)
+let prop_merge_idempotent =
+  Test.make ~name:"merge_idempotent" ~count:1000 trie_arb
+    (fun t -> isSame (merge t t) t)
+
+
+(* merge(merge(t1, t2), t3) = merge(t1, merge(t2, t3)) *)
+let prop_merge_associative =
+  Test.make ~name:"merge_associative" ~count:1000 (triple trie_arb trie_arb trie_arb)
+    (fun (t1, t2, t3) ->
+      isSame (merge (merge t1 t2) t3) (merge t1 (merge t2 t3)))
+
+(* merge(t, Empty) = t and merge(Empty, t) = t *)
+let prop_merge_neutral =
+  Test.make ~name:"merge_neutral" ~count:1000 trie_arb
+    (fun t ->
+      isSame (merge t Empty) t && isSame (merge Empty t) t)
+
+
 
 let _ =
   let open OUnit in
@@ -124,6 +91,7 @@ let _ =
            [ insertToTrie
            ; removeFromTrie
            ; prop_prefix_tree_map
-           ; associative
-           ; identity
-           ; prop_prefix_tree_merge ] )
+           ; prop_merge_idempotent
+           ; prop_merge_associative
+           ; prop_merge_neutral
+           ] )
