@@ -32,56 +32,49 @@ let prop_prefix_tree_map =
       | Some v -> v = value * 2
       | None -> false )
 
-
-let char_gen = Gen.map Char.chr (Gen.int_range (Char.code 'a') (Char.code 'z'))
-
+let char_gen =
+  Gen.map Char.chr (Gen.int_range (Char.code 'a') (Char.code 'z'))
 
 let rec trie_gen n =
   if n <= 0 then
-    Gen.oneof [Gen.return Empty; Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen]
+    Gen.oneof
+      [ Gen.return Empty
+      ; Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen ]
   else
     let smaller_gen = trie_gen (n - 1) in
     Gen.frequency
-      [
-        (1, Gen.return Empty);
-        (1, Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen);
-        ( 2,
-          Gen.map2
+      [ (1, Gen.return Empty)
+      ; (1, Gen.map (fun v -> Node (Some v, CharMap.empty)) char_gen)
+      ; ( 2
+        , Gen.map2
             (fun k t ->
               let children = CharMap.add k t CharMap.empty in
-              Node (None, children))
-            char_gen smaller_gen );
-        ( 4,
-          Gen.map2
+              Node (None, children) )
+            char_gen smaller_gen )
+      ; ( 4
+        , Gen.map2
             (fun k t ->
               let children = CharMap.add k t CharMap.empty in
-              Node (Some (Gen.generate1 char_gen), children))
-            char_gen smaller_gen );
-      ]
-
+              Node (Some (Gen.generate1 char_gen), children) )
+            char_gen smaller_gen ) ]
 
 let trie_arb = make ~print:(fun _ -> "<trie>") (trie_gen 3)
 
-
 (* merge(t, t) = t *)
 let prop_merge_idempotent =
-  Test.make ~name:"merge_idempotent" ~count:1000 trie_arb
-    (fun t -> isSame (merge t t) t)
-
+  Test.make ~name:"merge_idempotent" ~count:1000 trie_arb (fun t ->
+      isSame (merge t t) t )
 
 (* merge(merge(t1, t2), t3) = merge(t1, merge(t2, t3)) *)
 let prop_merge_associative =
-  Test.make ~name:"merge_associative" ~count:1000 (triple trie_arb trie_arb trie_arb)
-    (fun (t1, t2, t3) ->
-      isSame (merge (merge t1 t2) t3) (merge t1 (merge t2 t3)))
+  Test.make ~name:"merge_associative" ~count:1000
+    (triple trie_arb trie_arb trie_arb) (fun (t1, t2, t3) ->
+      isSame (merge (merge t1 t2) t3) (merge t1 (merge t2 t3)) )
 
 (* merge(t, Empty) = t and merge(Empty, t) = t *)
 let prop_merge_neutral =
-  Test.make ~name:"merge_neutral" ~count:1000 trie_arb
-    (fun t ->
-      isSame (merge t Empty) t && isSame (merge Empty t) t)
-
-
+  Test.make ~name:"merge_neutral" ~count:1000 trie_arb (fun t ->
+      isSame (merge t Empty) t && isSame (merge Empty t) t )
 
 let _ =
   let open OUnit in
@@ -93,5 +86,4 @@ let _ =
            ; prop_prefix_tree_map
            ; prop_merge_idempotent
            ; prop_merge_associative
-           ; prop_merge_neutral
-           ] )
+           ; prop_merge_neutral ] )

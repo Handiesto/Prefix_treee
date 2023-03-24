@@ -1,19 +1,18 @@
 open OUnit2
 open Prefix_tree
 
-
 let test_add _ =
   let trie1 = empty in
-  let trie2 = add "hello" ["1","2"] trie1 in
-  let trie3 = add "world" ["3","4"] trie2 in
-  let trie4 = add "hello" ["5","6"] trie3 in
+  let trie2 = add "hello" [("1", "2")] trie1 in
+  let trie3 = add "world" [("3", "4")] trie2 in
+  let trie4 = add "hello" [("5", "6")] trie3 in
   assert_equal (find "hello" trie1) None ;
-  assert_equal (find "hello" trie2) (Some ["1","2"]) ;
+  assert_equal (find "hello" trie2) (Some [("1", "2")]) ;
   assert_equal (find "world" trie2) None ;
-  assert_equal (find "hello" trie3) (Some ["1","2"]) ;
-  assert_equal (find "world" trie3) (Some ["3","4"]) ;
-  assert_equal (find "hello" trie4) (Some ["5","6"]) ;
-  assert_equal (find "world" trie4) (Some ["3","4"])
+  assert_equal (find "hello" trie3) (Some [("1", "2")]) ;
+  assert_equal (find "world" trie3) (Some [("3", "4")]) ;
+  assert_equal (find "hello" trie4) (Some [("5", "6")]) ;
+  assert_equal (find "world" trie4) (Some [("3", "4")])
 
 let test_remove _ =
   let trie1 = empty in
@@ -44,7 +43,7 @@ let test_find _ =
 let rec trie_to_string trie =
   match trie with
   | Empty -> "Empty"
-  | Node (v, children) ->
+  | Node (v, children) -> (
       let children_str =
         CharMap.bindings children
         |> List.map (fun (k, t) -> String.make 1 k ^ ": " ^ trie_to_string t)
@@ -52,8 +51,7 @@ let rec trie_to_string trie =
       in
       match v with
       | None -> "{" ^ children_str ^ "}"
-      | Some x -> "{" ^ children_str ^ ", " ^ string_of_int x ^ "}"
-
+      | Some x -> "{" ^ children_str ^ ", " ^ string_of_int x ^ "}" )
 
 let test_filter1 _ =
   let t = empty in
@@ -74,20 +72,21 @@ let test_filter1 _ =
 
 let test_filter2 _ =
   let trie =
-    add "cat" 1 (add "car" 2 (add "cart" 3 (add "dog" 4 (add "deer" 5 empty))))
+    add "cat" 1
+      (add "car" 2 (add "cart" 3 (add "dog" 4 (add "deer" 5 empty))))
   in
   let filtered_trie = filter (fun x -> x mod 2 = 0) trie in
-  assert (find "cat" filtered_trie = None);
-  assert (find "car" filtered_trie = Some 2);
-  assert (find "cart" filtered_trie = None);
-  assert (find "dog" filtered_trie = Some 4);
-  assert (find "deer" filtered_trie = None);
-  assert (find "c" filtered_trie = None);
-  assert (find "deerz" filtered_trie = None);
-  assert (find "cartz" filtered_trie = None);
-  assert (find "dogz" filtered_trie = None);
-  assert (find "x" filtered_trie = None);
-  assert (find "" filtered_trie = None);
+  assert (find "cat" filtered_trie = None) ;
+  assert (find "car" filtered_trie = Some 2) ;
+  assert (find "cart" filtered_trie = None) ;
+  assert (find "dog" filtered_trie = Some 4) ;
+  assert (find "deer" filtered_trie = None) ;
+  assert (find "c" filtered_trie = None) ;
+  assert (find "deerz" filtered_trie = None) ;
+  assert (find "cartz" filtered_trie = None) ;
+  assert (find "dogz" filtered_trie = None) ;
+  assert (find "x" filtered_trie = None) ;
+  assert (find "" filtered_trie = None) ;
   let trie2 = add "a" 1 (add "b" 2 (add "c" 3 empty)) in
   let filtered_trie2 = filter (fun _ -> false) trie2 in
   assert (is_empty filtered_trie2)
@@ -149,6 +148,6 @@ let suite =
        ; "test_merge" >:: test_merge
        ; "test_fold_left" >:: test_fold_left
        ; "test_fold_right" >:: test_fold_right
-       ; "test_filter2" >:: test_filter2]
+       ; "test_filter2" >:: test_filter2 ]
 
 let () = run_test_tt_main suite
