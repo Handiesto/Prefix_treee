@@ -2,6 +2,7 @@ open OUnit2
 open Prefix_tree
 
 let test_add _ =
+  let open IntListTrie in
   let trie1 = empty in
   let trie2 = add (string_to_int_list "hello") 1 trie1 in
   let trie3 = add (string_to_int_list "world") 2 trie2 in
@@ -12,28 +13,25 @@ let test_add _ =
   assert_equal (find (string_to_int_list "world") trie3) (Some 2)
 
 let test_add2 _ =
+  let open CharListTrie in
   let trie1 = empty in
-  let trie2 =
-    add (char_list_to_int_list ['h'; 'e'; 'l'; 'l'; 'o']) 1 trie1
-  in
-  assert_equal
-    (find (char_list_to_int_list ['h'; 'e'; 'l'; 'l'; 'o']) trie1)
-    None ;
-  assert_equal
-    (find (char_list_to_int_list ['h'; 'e'; 'l'; 'l'; 'o']) trie2)
-    (Some 1)
+  let trie2 = add ['h'; 'e'; 'l'; 'l'; 'o'] 1 trie1 in
+  assert_equal None (find ['h'; 'e'; 'l'; 'l'; 'o'] trie1) ;
+  assert_equal (Some 1) (find ['h'; 'e'; 'l'; 'l'; 'o'] trie2)
 
 let test_add3 _ =
+  let open IntListTrie in
   let trie1 = empty in
   let trie2 = add [1; 2; 3] "a" trie1 in
   let trie3 = add [3; 4; 5] "b" trie2 in
-  assert_equal (find [1; 2; 3] trie1) None ;
-  assert_equal (find [1; 2; 3] trie2) (Some "a") ;
-  assert_equal (find [3; 4; 5] trie2) None ;
-  assert_equal (find [1; 2; 3] trie3) (Some "a") ;
-  assert_equal (find [3; 4; 5] trie3) (Some "b")
+  assert_equal None (find [1; 2; 3] trie1) ;
+  assert_equal (Some "a") (find [1; 2; 3] trie2) ;
+  assert_equal None (find [3; 4; 5] trie2) ;
+  assert_equal (Some "a") (find [1; 2; 3] trie3) ;
+  assert_equal (Some "b") (find [3; 4; 5] trie3)
 
 let test_remove _ =
+  let open IntListTrie in
   let trie1 = empty in
   let trie2 = add (string_to_int_list "hello") 1 trie1 in
   let trie3 = add (string_to_int_list "world") 2 trie2 in
@@ -47,6 +45,7 @@ let test_remove _ =
   assert_equal (find (string_to_int_list "world") trie4) (Some 2)
 
 let test_find _ =
+  let open IntListTrie in
   let trie1 = empty in
   let trie2 = add (string_to_int_list "hello") 1 trie1 in
   let trie3 = add (string_to_int_list "world") 2 trie2 in
@@ -60,6 +59,7 @@ let test_find _ =
   assert_equal (find (string_to_int_list "world") trie4) (Some 2)
 
 let test_filter _ =
+  let open IntListTrie in
   let t = empty in
   let filtered_t = filter (fun _ -> true) t in
   assert (filtered_t = Empty) ;
@@ -86,18 +86,20 @@ let test_filter _ =
   assert (isSame t filtered_t)
 
 let test_map _ =
+  let open CharListTrie in
   let t1 =
     empty
-    |> add (string_to_int_list "hello") 1
-    |> add (string_to_int_list "world") 2
+    |> add ['h'; 'e'; 'l'; 'l'; 'o'] 1
+    |> add ['w'; 'o'; 'r'; 'l'; 'd'] 2
   in
   let t2 = map (fun v -> v * 2) t1 in
-  assert_equal (Some 1) (find (string_to_int_list "hello") t1) ;
-  assert_equal (Some 2) (find (string_to_int_list "world") t1) ;
-  assert_equal (Some 2) (find (string_to_int_list "hello") t2) ;
-  assert_equal (Some 4) (find (string_to_int_list "world") t2)
+  assert_equal (Some 1) (find ['h'; 'e'; 'l'; 'l'; 'o'] t1) ;
+  assert_equal (Some 2) (find ['w'; 'o'; 'r'; 'l'; 'd'] t1) ;
+  assert_equal (Some 2) (find ['h'; 'e'; 'l'; 'l'; 'o'] t2) ;
+  assert_equal (Some 4) (find ['w'; 'o'; 'r'; 'l'; 'd'] t2)
 
 let test_merge _ =
+  let open IntListTrie in
   let t1 =
     add
       (string_to_int_list "abc")
@@ -121,30 +123,32 @@ let test_merge _ =
   assert_equal None (find (string_to_int_list "abcd") t3)
 
 let test_fold_left _ =
+  let open IntListTrie in
   let t =
     Node
       ( Some "hello"
-      , KeyMap.of_seq
+      , Map.of_seq
         @@ List.to_seq
-             [ (Char.code 'w', Node (None, KeyMap.of_seq @@ List.to_seq []))
+             [ (Char.code 'w', Node (None, Map.of_seq @@ List.to_seq []))
              ; ( Char.code 'o'
-               , Node (Some "world", KeyMap.of_seq @@ List.to_seq []) ) ] )
+               , Node (Some "world", Map.of_seq @@ List.to_seq []) ) ] )
   in
   let expected = "helloworld" in
   let actual = fold_left (fun acc x -> acc ^ x) "" t in
   assert (actual = expected)
 
 let test_fold_right _ =
+  let open IntListTrie in
   let t =
     Node
       ( Some "hello"
-      , KeyMap.of_seq
+      , Map.of_seq
         @@ List.to_seq
-             [ (Char.code 'w', Node (None, KeyMap.of_seq @@ List.to_seq []))
+             [ (Char.code 'w', Node (None, Map.of_seq @@ List.to_seq []))
              ; ( Char.code 'o'
-               , Node (Some "world", KeyMap.of_seq @@ List.to_seq []) ) ] )
+               , Node (Some "world", Map.of_seq @@ List.to_seq []) ) ] )
   in
-  let expected = "helloworld" in
+  let expected = "worldhello" in
   let actual = fold_right (fun x acc -> x ^ acc) t "" in
   assert (actual = expected)
 
