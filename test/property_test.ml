@@ -7,8 +7,8 @@ let insertToTrie =
     QCheck.(pair string small_nat)
     (fun (key, value) ->
       let tree0 = Prefix_tree.empty in
-      let tree1 = Prefix_tree.add key value tree0 in
-      match Prefix_tree.find key tree1 with
+      let tree1 = Prefix_tree.add (string_to_int_list key) value tree0 in
+      match Prefix_tree.find (string_to_int_list key) tree1 with
       | Some v -> v = value
       | None -> false )
 
@@ -17,52 +17,51 @@ let removeFromTrie =
     QCheck.(pair string small_nat)
     (fun (key, value) ->
       let tree0 = Prefix_tree.empty in
-      let tree1 = Prefix_tree.add key value tree0 in
-      let tree2 = Prefix_tree.remove key tree1 in
-      match Prefix_tree.find key tree2 with Some _ -> false | None -> true )
+      let tree1 = Prefix_tree.add (string_to_int_list key) value tree0 in
+      let tree2 = Prefix_tree.remove (string_to_int_list key) tree1 in
+      match Prefix_tree.find (string_to_int_list key) tree2 with
+      | Some _ -> false
+      | None -> true )
 
 let prop_prefix_tree_map =
   QCheck.Test.make ~count:1000 ~name:"insert trie"
     QCheck.(pair string small_nat)
     (fun (key, value) ->
       let tree0 = Prefix_tree.empty in
-      let tree1 = Prefix_tree.add key value tree0 in
+      let tree1 = Prefix_tree.add (string_to_int_list key) value tree0 in
       let tree2 = Prefix_tree.map (fun x -> x * 2) tree1 in
-      match Prefix_tree.find key tree2 with
+      match Prefix_tree.find (string_to_int_list key) tree2 with
       | Some v -> v = value * 2
       | None -> false )
 
-let char_gen =
-  Gen.map Char.chr (Gen.int_range (Char.code 'a') (Char.code 'z'))
+let int_list_gen = Gen.(list_size (int_range 1 5) (int_range 0 9))
 
 let rec trie_gen n =
   if n <= 0 then
     Gen.oneof
       [ Gen.return Empty
-      ; Gen.map (fun vs -> Node (Some vs, CharMap.empty)) (Gen.list char_gen)
-      ]
+      ; Gen.map (fun vs -> Node (Some vs, KeyMap.empty)) int_list_gen ]
   else
     let smaller_gen = trie_gen (n - 1) in
     Gen.frequency
       [ (1, Gen.return Empty)
-      ; ( 1
-        , Gen.map
-            (fun vs -> Node (Some vs, CharMap.empty))
-            (Gen.list char_gen) )
+      ; (1, Gen.map (fun vs -> Node (Some vs, KeyMap.empty)) int_list_gen)
       ; ( 2
         , Gen.map2
             (fun k t ->
-              let children = CharMap.add k t CharMap.empty in
+              let children = KeyMap.add k t KeyMap.empty in
               Node (None, children) )
-            char_gen smaller_gen )
+            (Gen.oneofl [0; 1; 2; 3; 4; 5])
+            smaller_gen )
       ; ( 4
         , Gen.map2
             (fun k t ->
-              let children = CharMap.add k t CharMap.empty in
-              Node (Some (Gen.generate1 (Gen.list char_gen)), children) )
-            char_gen smaller_gen ) ]
+              let children = KeyMap.add k t KeyMap.empty in
+              Node (Some (Gen.generate1 int_list_gen), children) )
+            (Gen.oneofl [0; 1; 2; 3; 4; 5])
+            smaller_gen ) ]
 
-let trie_arb = make ~print:(fun _ -> "<trie>") (trie_gen 3)
+let trie_arb = make ~print:(fun _ -> "<trie>") (trie_gen 2)
 
 (* merge(t, t) = t *)
 let prop_merge_idempotent =
